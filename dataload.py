@@ -87,7 +87,7 @@ class DPRewriteDataset(object):
                     checkpoint_dir=checkpoint_dir,
                     transformer_type=transformer_type,
                     max_seq_len=max_seq_len, batch_size=batch_size,
-                    prepend_labels=prepend_labels, mode=mode)
+                    prepend_labels=prepend_labels, mode=mode, dataset_name=dataset_name)
         elif model_type == 'rnn' and not custom_preprocessor:
             if embed_dir_processed is None:
                 raise Exception("Please specify 'embed_dir_processed' for RNN-based models.")
@@ -177,6 +177,10 @@ class DPRewriteDataset(object):
         elif self.dataset_name == 'wikipedia':
             print("Preparing Wikipedia dataset...")
             self._load_hf('wikipedia', subset='20200501.en')
+
+        elif self.dataset_name == 'polyglot':
+            self._load_hf('polyglot_ner', 'en', target_column_dict={'words': 'text', 'ner': 'label'})
+
         else:
             print("Preparing custom dataset...")
             self._load_custom()
@@ -246,6 +250,7 @@ class DPRewriteDataset(object):
 
         if subset is not None:
             data = load_dataset(name, subset, cache_dir=cache_dir)
+            data['train'] = data['train'].select(list(range(1000)))
         else:
             data = load_dataset(name, cache_dir=cache_dir)
 

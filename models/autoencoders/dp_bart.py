@@ -383,7 +383,7 @@ class DPBart_Private(BartPretrainedModel):
         }
 
     def get_encoder_outputs(self, **inputs):
-        encoder_outputs = self.model.encoder(**inputs)
+        encoder_outputs = self.model.encoder(**{k: v for k, v in inputs.items() if k != 'labels'})
         return encoder_outputs
 
     def reduce_pruned_encoder_outputs(self, enc_out_last_hidden):

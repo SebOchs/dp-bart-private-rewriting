@@ -856,8 +856,13 @@ class RewriteExperiment(Experiment):
                         encoder_input_ids = batch['input_ids'].to(self.device)
                         attention_mask = batch['attention_mask'].to(self.device)
                         true_labels = batch['labels'].to(self.device)
-                        inputs = {'input_ids': encoder_input_ids,
-                                  'attention_mask': attention_mask}
+                        if self.dataset_name != 'polyglot':
+                            inputs = {'input_ids': encoder_input_ids,
+                                      'attention_mask': attention_mask}
+                        else:
+                            inputs = {'input_ids': encoder_input_ids,
+                                      'attention_mask': attention_mask,
+                                      'labels': true_labels}
                         tgt = deepcopy(encoder_input_ids)[:, 1:].reshape(-1)
 
                     loss = 0
@@ -999,7 +1004,7 @@ class RewriteExperiment(Experiment):
             os.makedirs(self.rewritten_dataset_dir)
 
         # Loading the pre-trained model
-        self._load_checkpoint()
+        # self._load_checkpoint()
 
         splits = {'train': self.dataset.train_iterator,
                   'valid': self.dataset.valid_iterator,

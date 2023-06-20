@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import torch
 from transformers import AutoTokenizer
-
+from transformers.tokenization_utils_base import BatchEncoding
 from torchtext.data.utils import get_tokenizer
 from gensim.models import KeyedVectors
 
@@ -41,6 +41,7 @@ class Preprocessor(ABC):
         Given a loaded dataset from HF or local path, output the preprocessed
         dataset.
     '''
+
     def __init__(self, checkpoint_dir, max_seq_len, batch_size,
                  prepend_labels, mode):
         self.checkpoint_dir = checkpoint_dir
@@ -87,10 +88,10 @@ class Preprocessor_for_RNN(Preprocessor):
         self.UNK = '<UNK>'
 
         if self.embed_type not in ['none']:
-            self.vocab, self.embeds, self.word2idx, self.idx2word =\
-                    self._make_vocab_and_embeds_files()
+            self.vocab, self.embeds, self.word2idx, self.idx2word = \
+                self._make_vocab_and_embeds_files()
         else:
-            self.vocab, self.embeds, self.word2idx, self.idx2word = (None,)*4
+            self.vocab, self.embeds, self.word2idx, self.idx2word = (None,) * 4
 
     def _make_vocab_and_embeds_files(self):
         '''
@@ -221,7 +222,7 @@ class Preprocessor_for_RNN(Preprocessor):
             if rewriting:
                 try:
                     old_idx2word = copy.deepcopy(self.idx2word)
-                    self.vocab, self.embeds, self.word2idx, self.idx2word =\
+                    self.vocab, self.embeds, self.word2idx, self.idx2word = \
                         self._load_existing_compact_embeds(last_checkpoint_path)
                 except:
                     print("Could not load existing word2idx and idx2word "
@@ -231,13 +232,13 @@ class Preprocessor_for_RNN(Preprocessor):
                           "for both.")
                     top_idxs = self._get_frequency(data)
                     old_idx2word = copy.deepcopy(self.idx2word)
-                    self.vocab, self.embeds, self.word2idx, self.idx2word =\
+                    self.vocab, self.embeds, self.word2idx, self.idx2word = \
                         self._prepare_compact_embeds(top_idxs,
                                                      idx_labels=idx_labels)
             else:
                 top_idxs = self._get_frequency(data)
                 old_idx2word = copy.deepcopy(self.idx2word)
-                self.vocab, self.embeds, self.word2idx, self.idx2word =\
+                self.vocab, self.embeds, self.word2idx, self.idx2word = \
                     self._prepare_compact_embeds(top_idxs,
                                                  idx_labels=idx_labels)
         else:
@@ -269,7 +270,7 @@ class Preprocessor_for_RNN(Preprocessor):
                 [self.word2idx[token]
                  if token in self.word2idx.keys()
                  else self.word2idx[self.UNK]
-                 for token in tokenized][:(self.max_seq_len-2)],
+                 for token in tokenized][:(self.max_seq_len - 2)],
                 dtype=torch.long)  # -2 for SOS+EOS tokens
             length = tensor.size()[0]
             data.append((tensor, length, doc_dict['label']))
@@ -285,7 +286,7 @@ class Preprocessor_for_RNN(Preprocessor):
         return top_indexes
 
     def _prepare_compact_embeds(self, top_indexes, idx_labels=None):
-        reindexes = np.arange(self.vocab_size+4)
+        reindexes = np.arange(self.vocab_size + 4)
         new_vocab = self.vocab[top_indexes]
         new_embeds = self.embeds[top_indexes, :]
 
@@ -358,10 +359,10 @@ class Preprocessor_for_RNN(Preprocessor):
                 old_indexes = data_point[0]
                 words = [old_idx2word[idx.item()] for idx in old_indexes]
                 new_indexes = torch.tensor(
-                        [compact_word2idx[word]
-                         if word in compact_word2idx
-                         else compact_word2idx[self.UNK] for word in words],
-                        dtype=torch.long)
+                    [compact_word2idx[word]
+                     if word in compact_word2idx
+                     else compact_word2idx[self.UNK] for word in words],
+                    dtype=torch.long)
             else:
                 # If subsequent shard
                 new_indexes = data_point[0]
@@ -373,23 +374,23 @@ class Preprocessor_for_RNN(Preprocessor):
                 else:
                     lab = self.word2idx[self.UNK]
                 new_indexes = torch.cat(
-                    (torch.tensor([lab]), new_indexes[:(self.max_seq_len-3)]),
+                    (torch.tensor([lab]), new_indexes[:(self.max_seq_len - 3)]),
                     dim=0)
-                    # restricting to 'self.max_seq_len-3' to account for the
-                    # SOS, EOS and label tokens
+                # restricting to 'self.max_seq_len-3' to account for the
+                # SOS, EOS and label tokens
             else:
                 lab = data_point[2]
 
             new_indexes = torch.cat(
-                    (torch.tensor([compact_word2idx[self.SOS]]),
-                     new_indexes,
-                     torch.tensor([compact_word2idx[self.EOS]])), dim=0)
+                (torch.tensor([compact_word2idx[self.SOS]]),
+                 new_indexes,
+                 torch.tensor([compact_word2idx[self.EOS]])), dim=0)
             new_length = data_point[1] + 2
 
             while new_indexes.shape[0] < self.max_seq_len:
                 new_indexes = torch.cat(
-                        (new_indexes,
-                         torch.tensor([compact_word2idx[self.PAD]])))
+                    (new_indexes,
+                     torch.tensor([compact_word2idx[self.PAD]])))
 
             reindexed.append((new_indexes, new_length, lab))
 
@@ -432,7 +433,7 @@ class Preprocessor_for_RNN(Preprocessor):
                 checkpoint_dir = os.path.abspath(
                     os.path.join(last_checkpoint_path, os.pardir))
                 with open(os.path.join(checkpoint_dir,
-                          'large_idx2word.json'), 'r',
+                                       'large_idx2word.json'), 'r',
                           encoding='utf-8') as f:
                     self.idx2word = json.load(f)
                 self.idx2word = {int(idx): token
@@ -463,7 +464,7 @@ class Preprocessor_for_RNN(Preprocessor):
             self.idx2word = {idx: token for idx, token in enumerate(idx2word)}
 
             with open(os.path.join(self.checkpoint_dir,
-                      'large_idx2word.json'), 'w',
+                                   'large_idx2word.json'), 'w',
                       encoding='utf-8') as f:
                 json.dump(self.idx2word, f, ensure_ascii=False, indent=4,
                           cls=NpEncoder)
@@ -476,11 +477,12 @@ class Preprocessor_for_RNN(Preprocessor):
         data = data.map(self._encode, batched=True, num_proc=proc_num)
 
         data = [(torch.tensor(indexes), length, label)
-                  for indexes, length, label in zip(
-                      data['encoded'], data['length'], data['label'])]
+                for indexes, length, label in zip(
+                data['encoded'], data['length'], data['label'])]
 
         if len(self.idx2word) < self.vocab_size:
-            print(f"Specified vocabulary size as {self.vocab_size}, but number of unique words in dataset {len(self.idx2word)}. Setting vocabulary size to {len(self.idx2word)-1}.")
+            print(
+                f"Specified vocabulary size as {self.vocab_size}, but number of unique words in dataset {len(self.idx2word)}. Setting vocabulary size to {len(self.idx2word) - 1}.")
             self.vocab_size = len(self.idx2word) - 1
 
         if rewriting:
@@ -502,7 +504,7 @@ class Preprocessor_for_RNN(Preprocessor):
                       "for both.")
                 top_indexes = self._get_frequency(data)
                 old_idx2word = copy.deepcopy(self.idx2word)
-                reindexes = np.arange(self.vocab_size+4)
+                reindexes = np.arange(self.vocab_size + 4)
                 vocab = np.vectorize(self.idx2word.get)(top_indexes)
                 vocab = np.insert(vocab, 0, self.PAD)
                 vocab = np.insert(vocab, 1, self.UNK)
@@ -524,7 +526,7 @@ class Preprocessor_for_RNN(Preprocessor):
         else:
             top_indexes = self._get_frequency(data)
             old_idx2word = copy.deepcopy(self.idx2word)
-            reindexes = np.arange(self.vocab_size+4)
+            reindexes = np.arange(self.vocab_size + 4)
             vocab = np.vectorize(self.idx2word.get)(top_indexes)
             vocab = np.insert(vocab, 0, self.PAD)
             vocab = np.insert(vocab, 1, self.UNK)
@@ -578,21 +580,22 @@ class Preprocessor_for_RNN(Preprocessor):
         data = data.map(self._encode, batched=True)
         data = [(torch.tensor(indexes), length, label)
                 for indexes, length, label in zip(
-                    data['encoded'], data['length'], data['label'])]
+                data['encoded'], data['length'], data['label'])]
         # Only padding and adding sos/eos tokens in this case
         data = self._reindex_data_and_pad(data, self.word2idx)
 
         return data
 
     def _encode(self, examples):
-        encoded = [[self.word2idx[tok] if tok in self.word2idx else self.word2idx[self.UNK] for tok in doc] for doc in examples['text']]
-        examples['encoded'] = [torch.tensor(enc_doc[:(self.max_seq_len-2)]) for enc_doc in encoded]
+        encoded = [[self.word2idx[tok] if tok in self.word2idx else self.word2idx[self.UNK] for tok in doc] for doc in
+                   examples['text']]
+        examples['encoded'] = [torch.tensor(enc_doc[:(self.max_seq_len - 2)]) for enc_doc in encoded]
         examples['length'] = [doc.size()[0] for doc in examples['encoded']]
         return examples
 
 
 class Preprocessor_for_Transformer(Preprocessor):
-    def __init__(self, transformer_type='bert-base-uncased', **kwargs):
+    def __init__(self, transformer_type='bert-base-uncased', dataset_name=None, **kwargs):
         super().__init__(**kwargs)
 
         self.transformer_type = transformer_type
@@ -602,10 +605,11 @@ class Preprocessor_for_Transformer(Preprocessor):
         self.PAD = self.tokenizer.pad_token
         self.UNK = self.tokenizer.unk_token
 
-        self.vocab, self.embeds, self.word2idx, self.idx2word = (None,)*4
+        self.vocab, self.embeds, self.word2idx, self.idx2word = (None,) * 4
         self.lab_str2int = None
         self.lab_int2str = None
         self.num_labels = None
+        self.dataset_name = dataset_name
 
         if self.prepend_labels:
             raise Exception(
@@ -613,36 +617,81 @@ class Preprocessor_for_Transformer(Preprocessor):
                 "models.")
 
     def process_data(self, data, train_split=True, first_shard=True):
-        if np.count_nonzero(data['label']) == 0:
-            sorted_labels = [0.0]
-        else:
-            sorted_labels = sorted(set(
-                data[idx]['label'] for idx in range(len(data))))
+        if self.dataset_name != 'polyglot':
 
-        if not train_split:
-            sorted_val_labels = [lab for lab in sorted_labels
-                                 if lab not in self.lab_str2int]
-            for val in sorted_val_labels:
-                self.lab_str2int[val] = len(self.lab_str2int)
-        else:
-            lab_str2int = {string: idx
-                           for idx, string in enumerate(sorted_labels)}
-            self.lab_str2int = lab_str2int
+            if np.count_nonzero(data['label']) == 0:
+                sorted_labels = [0.0]
 
-        lab_int2str = {val: key for key, val in self.lab_str2int.items()}
-        self.lab_int2str = lab_int2str
-        self.num_labels = len(self.lab_str2int)
+            else:
+                sorted_labels = sorted(set(
+                    data[idx]['label'] for idx in range(len(data))))
+
+            if not train_split:
+                sorted_val_labels = [lab for lab in sorted_labels
+                                     if lab not in self.lab_str2int]
+                for val in sorted_val_labels:
+                    self.lab_str2int[val] = len(self.lab_str2int)
+            else:
+                lab_str2int = {string: idx
+                               for idx, string in enumerate(sorted_labels)}
+                self.lab_str2int = lab_str2int
+
+            lab_int2str = {val: key for key, val in self.lab_str2int.items()}
+            self.lab_int2str = lab_int2str
+            self.num_labels = len(self.lab_str2int)
 
         def encode(examples):
             if None in examples['text']:
                 print("***** None found *****")
                 examples['text'] = [text if text is not None else ''
                                     for text in examples['text']]
-            tokenized_batch = self.tokenizer(
-                examples['text'], truncation=True,
-                max_length=self.max_seq_len, padding='max_length')
-            tokenized_batch['label'] =\
-                [self.lab_str2int[lab] for lab in examples['label']]
+
+            if self.dataset_name == 'polyglot':
+                text_batch = []
+                label_batch = []
+                for i in range(len(examples['text'])):
+                    text = self.tokenizer(list(map(lambda x: x + " ", examples['text'][i])),
+                                          add_special_tokens=False).input_ids
+                    label = self.tokenizer(['0' if x == 'O' else '1' for x in examples['label'][i]],
+                                           add_special_tokens=False).input_ids
+                    new_text, new_label = [], []
+                    for x, y in list(zip(text, label)):
+                        new_text.append(x)
+                        new_label.append(y * len(x))
+                    new_text = [x for y in new_text for x in y]
+                    new_label = [x for y in new_label for x in y]
+                    max_len = self.max_seq_len - 2
+                    if len(new_text) > max_len:
+                        new_text = [self.tokenizer.bos_token_id] + new_text[:max_len] + \
+                                   [self.tokenizer.eos_token_id]
+                        new_label = [self.tokenizer.bos_token_id] + new_label[:max_len] + \
+                                    [self.tokenizer.eos_token_id]
+                    elif len(new_text) < max_len:
+                        new_text = [self.tokenizer.bos_token_id] + new_text + [self.tokenizer.eos_token_id] + \
+                                   [self.tokenizer.pad_token_id] * (max_len - len(new_text))
+
+                        new_label = [self.tokenizer.bos_token_id] + new_label + \
+                                    [self.tokenizer.eos_token_id] + \
+                                    [self.tokenizer.pad_token_id] * (max_len - len(new_label))
+                    else:
+                        new_text = [self.tokenizer.bos_token_id] + new_text + [self.tokenizer.eos_token_id]
+                        new_label = [self.tokenizer.bos_token_id] + new_label + [self.tokenizer.eos_token_id]
+
+                    text_batch.append(new_text)
+                    label_batch.append(new_label)
+
+                tokenized_batch = BatchEncoding({
+                    'input_ids': text_batch,
+                    'attention_mask': [[1 if x != 1 else 0 for x in y] for y in text_batch],
+                    'labels': label_batch
+                })
+
+            else:
+                tokenized_batch = self.tokenizer(
+                    [" ".join(x) for x in examples['text']], truncation=True,
+                    max_length=self.max_seq_len, padding='max_length')
+                tokenized_batch['label'] = \
+                    [self.lab_str2int[lab] for lab in examples['label']]
             return tokenized_batch
 
         data = self.map_data_split(data, encode)
@@ -651,15 +700,20 @@ class Preprocessor_for_Transformer(Preprocessor):
 
     def map_data_split(self, data_split, encode):
         data_split = data_split.map(encode, batched=True)
-        data_split = data_split.map(
+        if self.dataset_name != 'polyglot':
+            data_split = data_split.map(
                 lambda examples: {'labels': examples['label']}, batched=True)
-        data_split = data_split.remove_columns('label')
-        data_split.set_format(
-            type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-        if not data_split.features['labels'] == Value('int64'):
-            new_features = data_split.features.copy()
-            new_features['labels'] = Value('int64')
-            data_split = data_split.cast(new_features)
+            data_split = data_split.remove_columns('label')
+            data_split.set_format(
+                type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+            if not data_split.features['labels'] == Value('int64'):
+                new_features = data_split.features.copy()
+                new_features['labels'] = Value('int64')
+                data_split = data_split.cast(new_features)
+        else:
+            data_split = data_split.remove_columns(['text', 'label'])
+            data_split.set_format(
+                type='torch', columns=['input_ids', 'attention_mask', 'labels'])
         return data_split
 
 

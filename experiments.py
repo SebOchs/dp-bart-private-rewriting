@@ -895,6 +895,9 @@ class RewriteExperiment(Experiment):
                     else:
                         if self.model_type == 'rnn':
                             output_labels = true_labels
+                        elif self.dataset_name =='polyglot':
+                            output_labels = decode_rewritten(true_labels, self.dataset.preprocessor,
+                                                             remove_special_tokens=True, model_type=self.model_type)
                         else:
                             true_labels = [
                                 self.dataset.preprocessor.lab_int2str[lab.item()]

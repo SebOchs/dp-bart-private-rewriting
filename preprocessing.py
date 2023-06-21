@@ -650,7 +650,7 @@ class Preprocessor_for_Transformer(Preprocessor):
                 text_batch = []
                 label_batch = []
                 for i in range(len(examples['text'])):
-                    text = self.tokenizer(list(map(lambda x: x + " ", examples['text'][i])),
+                    text = self.tokenizer(list(map(lambda x: " " + x, examples['text'][i])),
                                           add_special_tokens=False).input_ids
                     label = self.tokenizer(['0' if x == 'O' else '1' for x in examples['label'][i]],
                                            add_special_tokens=False).input_ids

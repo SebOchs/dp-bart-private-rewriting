@@ -69,6 +69,34 @@ class DPBart(Autoencoder_Transformer):
             max_seq_len = enc_out_last_hidden.shape[1]
             hidden_dim = enc_out_last_hidden.shape[2]
 
+            ### Privatize mask
+            mask = (inputs['labels']==0) + (inputs['labels']==1) + (inputs['labels']==2) + (inputs['labels']==288) # SOS,EOS,PAD,NOT-NE
+            mask = mask.logical_not()
+            genstyle = "block_masked" # OPTIONS: ["gen_masked", "block_masked", "both"]
+            privatemask = {'genstyle':genstyle, 'src_ids':inputs['input_ids'],'mask':mask}
+            #badwrds = [[3] for b in range(batch_dim)] # lazy: 3 is the tokenid for <unk>
+            badwrds = [[3]] # lazy: 3 is the tokenid for <unk>
+            if genstyle in ["block_masked","both"]:
+                #aux = (privatemask['src_ids'] * mask.int()).nonzero()
+                #for idxs in aux:
+                    #badwrds[idxs[0]].append(int(privatemask['src_ids'][idxs[0],idxs[1]] ))
+                #aux = privatemask['src_ids'][mask.bool()]
+
+                for i,row in enumerate(mask):
+                    mem=False
+                    for j,entry in enumerate(row):
+                        if entry:
+                            if not mem:
+                                wrd  = [int(privatemask['src_ids'][i,j])]
+                                mem = entry
+                            else:
+                                wrd.append(int(privatemask['src_ids'][i,j]))
+                                mem = entry
+                        # when the word ends
+                        if entry ==False and mem==True: 
+                            badwrds.append(wrd)
+                            mem = entry
+
             ### Prune neurons
             if self.config.pruning:
                 enc_out_last_hidden[:, :, self.model.k_prune_neurons] = 0
@@ -87,9 +115,10 @@ class DPBart(Autoencoder_Transformer):
                 privatized_vecs = self.model.privatize(enc_out_last_hidden)
                 privatized_vecs = privatized_vecs.view(batch_dim, max_seq_len,
                                                        hidden_dim)
-            encoder_outputs.last_hidden_state = privatized_vecs
-            # Only the `last_hidden_state` attribute of `encoder_outputs` is
-            # not None
+
+            #encoder_outputs.last_hidden_state = privatized_vecs
+            encoder_outputs.last_hidden_state[privatemask['mask']] = privatized_vecs[privatemask['mask']]
+            # Only the `last_hidden_state` attribute of `encoder_outputs` is not None
             mod_src_input = None
         else:
             encoder_outputs = self.model.model.encoder(**inputs)
@@ -111,7 +140,9 @@ class DPBart(Autoencoder_Transformer):
         outputs = self.model.generate(mod_src_input, num_beams=beam_size,
                                       max_length=self.config.max_seq_len,
                                       early_stopping=True,
-                                      encoder_outputs=encoder_outputs)
+                                      encoder_outputs=encoder_outputs,
+                                      bad_words_ids=badwrds,
+                                      **privatemask)
         return outputs
 
     def forward(self, **inputs):
